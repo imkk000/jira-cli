@@ -22,15 +22,16 @@ Usage:
   jira sprints [-board ID] [-all] [-json]
   jira issues  [-board ID] [FILTERS] [-json]
   jira sprint  [-board ID] [-sprint NAME|ID] [FILTERS] [-json]
-  jira show    [-json] KEY
-  jira transitions [-json] KEY
-  jira move    [-yes] [-dry-run] [-any-sprint] KEY STATUS
+  jira show    [-json] KEY|URL
+  jira transitions [-json] KEY|URL
+  jira move    [-yes] [-dry-run] [-any-sprint] KEY|URL STATUS
 
 Filters:
   -status NAME  -assignee me|none|USER  -open  -jql CLAUSE  -limit N
   -wide also shows TYPE, PRIORITY and ASSIGNEE
 
-Environment (also read from ./.env; real environment variables win):
+Environment (also read from ~/.config/jira-cli/config.env, then ./.env;
+later files override earlier ones and real environment variables win):
   JIRA_URL        base URL, e.g. https://your-domain.atlassian.net
   JIRA_EMAIL      account email (Jira Cloud); leave unset to send JIRA_API_TOKEN as a bearer PAT (Server/Data Center)
   JIRA_API_TOKEN  API token or personal access token
@@ -73,7 +74,11 @@ func run(ctx context.Context, args []string, in io.Reader, out io.Writer) error 
 		return err
 	}
 
-	dotEnv, err := readDotEnv(dotEnvFile)
+	userConfig, err := userConfigFile(os.Getenv)
+	if err != nil {
+		return err
+	}
+	dotEnv, err := readDotEnvs(userConfig, dotEnvFile)
 	if err != nil {
 		return err
 	}

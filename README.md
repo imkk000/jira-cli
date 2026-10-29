@@ -5,7 +5,7 @@ CLI for listing, viewing, and moving issues on a Jira board. It uses only the Go
 ## Setup
 
 1. Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens (Jira Cloud). On Server or Data Center, create a personal access token and leave `JIRA_EMAIL` unset.
-2. Put the configuration in `.env` in the directory you run `jira` from (real environment variables override it):
+2. Put the configuration in `~/.config/jira-cli/config.env` (or `$XDG_CONFIG_HOME/jira-cli/config.env`). A `.env` in the directory you run `jira` from overrides it per project, and real environment variables override both:
 
 ```sh
 JIRA_URL=https://your-domain.atlassian.net
@@ -31,6 +31,7 @@ jira sprint -sprint "Sprint 1" -assignee me
 jira sprint -jql 'created < "2026-10-21"'
 jira issues -status "In Progress"
 jira show PROJ-123
+jira show https://your-domain.atlassian.net/browse/PROJ-123
 jira transitions PROJ-123
 jira move -dry-run PROJ-123 In Code Review
 jira move PROJ-123 "In Code Review"
@@ -42,11 +43,11 @@ jira move PROJ-123 "In Code Review"
 | `sprints`     | List active and future sprints (`-all` adds closed)                  |
 | `sprint`      | List issues in `-sprint`, else `JIRA_SPRINT`, else the active sprint |
 | `issues`      | List issues on the board                                             |
-| `show`        | Show one issue with its description                                  |
+| `show`        | Show one issue with its description and comments                     |
 | `transitions` | List the status moves available for an issue right now               |
 | `move`        | Move an issue to a status reachable in one step                      |
 
-`issues` and `sprint` accept `-status`, `-assignee me|none|USER`, `-open` (hide Done-category statuses), `-jql`, and `-limit`. `show`, `transitions`, and every list command accept `-json`.
+`issues` and `sprint` accept `-status`, `-assignee me|none|USER`, `-open` (hide Done-category statuses), `-jql`, and `-limit`. `show`, `transitions`, and every list command accept `-json`. `show`, `transitions`, and `move` take an issue key or an issue URL (`.../browse/PROJ-123` or a board link with `selectedIssue=PROJ-123`).
 
 `move` matches the target by status name, action name, or transition ID, prints the planned move, and asks for confirmation (`-yes` skips it, `-dry-run` stops before changing anything). When `JIRA_SPRINT` is set, it refuses issues outside that sprint unless `-any-sprint` is given. Jira workflows only allow one step at a time, so moving across several statuses takes several `move` calls. Changing status needs the `write:jira-work` scope on scoped tokens.
 

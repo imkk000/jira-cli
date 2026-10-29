@@ -16,7 +16,7 @@ func (t *Text) UnmarshalJSON(data []byte) error {
 	}
 	var doc adfNode
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return fmt.Errorf("decode description: %w", err)
+		return fmt.Errorf("decode rich text: %w", err)
 	}
 	*t = Text(strings.TrimSpace(string(doc.appendText(nil))))
 	return nil

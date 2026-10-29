@@ -4,8 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
+	"path/filepath"
 	"strings"
+)
+
+const (
+	configDirName  = "jira-cli"
+	configFileName = "config.env"
 )
 
 func readDotEnv(path string) (map[string]string, error) {
@@ -29,6 +36,30 @@ func readDotEnv(path string) (map[string]string, error) {
 		values[strings.TrimSpace(key)] = unquote(strings.TrimSpace(value))
 	}
 	return values, nil
+}
+
+func readDotEnvs(paths ...string) (map[string]string, error) {
+	merged := make(map[string]string)
+	for _, path := range paths {
+		values, err := readDotEnv(path)
+		if err != nil {
+			return nil, err
+		}
+		maps.Copy(merged, values)
+	}
+	return merged, nil
+}
+
+func userConfigFile(getenv func(string) string) (string, error) {
+	dir := getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(dir, configDirName, configFileName), nil
 }
 
 func unquote(s string) string {

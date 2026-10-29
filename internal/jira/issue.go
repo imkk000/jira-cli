@@ -7,9 +7,10 @@ import (
 )
 
 type Issue struct {
-	ID     string      `json:"id"`
-	Key    string      `json:"key"`
-	Fields IssueFields `json:"fields"`
+	ID       string      `json:"id"`
+	Key      string      `json:"key"`
+	Fields   IssueFields `json:"fields"`
+	Comments []Comment   `json:"comments,omitempty"`
 }
 
 type IssueFields struct {

@@ -169,6 +169,33 @@ func TestIssueFetchesDetail(t *testing.T) {
 	}
 }
 
+func TestCommentsPaginatesOldestFirst(t *testing.T) {
+	c := newTestClient(t, "me@example.com", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/2/issue/PROJ-12/comment" {
+			t.Errorf("path = %q", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("orderBy"); got != "created" {
+			t.Errorf("orderBy = %q", got)
+		}
+		switch start := r.URL.Query().Get("startAt"); start {
+		case "0":
+			respond(t, w, `{"total":2,"comments":[{"id":"1","author":{"displayName":"Ann"},"body":"first","created":"2026-10-01T09:30:00.000+0700"}]}`)
+		case "1":
+			respond(t, w, `{"total":2,"comments":[{"id":"2","author":{"displayName":"Bob"},"body":"second"}]}`)
+		default:
+			t.Errorf("unexpected startAt %q", start)
+		}
+	})
+
+	comments, err := c.Comments(t.Context(), "PROJ-12")
+	if err != nil {
+		t.Fatalf("Comments: %v", err)
+	}
+	if len(comments) != 2 || comments[0].Body != "first" || comments[1].Author.String() != "Bob" {
+		t.Fatalf("comments = %+v", comments)
+	}
+}
+
 func TestTextDecodesADF(t *testing.T) {
 	doc := `{"type":"doc","content":[
 		{"type":"paragraph","content":[{"type":"text","text":"Hello "},{"type":"text","text":"world"}]},

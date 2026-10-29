@@ -166,6 +166,12 @@ func printIssue(out io.Writer, issue jira.Issue, browseURL string) error {
 	if f.Description != "" {
 		p.printf("\n%s\n", f.Description)
 	}
+	if len(issue.Comments) > 0 {
+		p.printf("\nComments (%d)\n", len(issue.Comments))
+		for _, c := range issue.Comments {
+			p.printf("\n%s  %s\n%s\n", c.Author, formatTime(c.Created.Time, dateTimeLayout), c.Body)
+		}
+	}
 	return p.err
 }
 

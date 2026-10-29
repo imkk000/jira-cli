@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -227,10 +228,17 @@ func runShow(ctx context.Context, client *jira.Client, args []string, out io.Wri
 		return err
 	}
 	if len(positional) != 1 {
-		return errors.New("usage: jira show [-json] KEY")
+		return errors.New("usage: jira show [-json] KEY|URL")
 	}
-	issue, err := client.Issue(ctx, positional[0])
+	key, err := issueKey(positional[0])
 	if err != nil {
+		return err
+	}
+	issue, err := client.Issue(ctx, key)
+	if err != nil {
+		return err
+	}
+	if issue.Comments, err = client.Comments(ctx, issue.Key); err != nil {
 		return err
 	}
 	if *asJSON {
@@ -241,4 +249,23 @@ func runShow(ctx context.Context, client *jira.Client, args []string, out io.Wri
 		return err
 	}
 	return printIssue(out, issue, browse(issue.Key))
+}
+
+func issueKey(ref string) (string, error) {
+	if !strings.Contains(ref, "://") {
+		return ref, nil
+	}
+	u, err := url.Parse(ref)
+	if err != nil {
+		return "", fmt.Errorf("issue URL: %w", err)
+	}
+	if key := u.Query().Get("selectedIssue"); key != "" {
+		return key, nil
+	}
+	if _, rest, ok := strings.Cut(u.Path, "/browse/"); ok {
+		if key, _, _ := strings.Cut(rest, "/"); key != "" {
+			return key, nil
+		}
+	}
+	return "", fmt.Errorf("no issue key in URL %q, want e.g. https://your-domain.atlassian.net/browse/PROJ-123", ref)
 }

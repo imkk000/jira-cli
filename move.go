@@ -21,9 +21,13 @@ func runTransitions(ctx context.Context, client *jira.Client, args []string, out
 		return err
 	}
 	if len(positional) != 1 {
-		return errors.New("usage: jira transitions [-json] KEY")
+		return errors.New("usage: jira transitions [-json] KEY|URL")
 	}
-	issue, err := client.Issue(ctx, positional[0])
+	key, err := issueKey(positional[0])
+	if err != nil {
+		return err
+	}
+	issue, err := client.Issue(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -47,9 +51,13 @@ func runMove(ctx context.Context, client *jira.Client, cfg config, args []string
 		return err
 	}
 	if len(positional) < 2 {
-		return errors.New("usage: jira move [-yes] [-dry-run] [-any-sprint] KEY STATUS")
+		return errors.New("usage: jira move [-yes] [-dry-run] [-any-sprint] KEY|URL STATUS")
 	}
-	key, target := positional[0], strings.Join(positional[1:], " ")
+	key, err := issueKey(positional[0])
+	if err != nil {
+		return err
+	}
+	target := strings.Join(positional[1:], " ")
 
 	issue, err := client.Issue(ctx, key)
 	if err != nil {

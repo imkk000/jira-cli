@@ -123,6 +123,82 @@ func TestReadDotEnvRejectsMalformedLine(t *testing.T) {
 	}
 }
 
+func TestReadDotEnvsLaterFileWins(t *testing.T) {
+	dir := t.TempDir()
+	user := filepath.Join(dir, "config.env")
+	local := filepath.Join(dir, ".env")
+	if err := os.WriteFile(user, []byte("JIRA_URL=https://x.atlassian.net\nJIRA_SPRINT=Support\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(local, []byte("JIRA_SPRINT=Sprint 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readDotEnvs(user, local, filepath.Join(dir, "missing"))
+	if err != nil {
+		t.Fatalf("readDotEnvs: %v", err)
+	}
+	if got["JIRA_URL"] != "https://x.atlassian.net" || got["JIRA_SPRINT"] != "Sprint 1" {
+		t.Errorf("readDotEnvs = %v", got)
+	}
+}
+
+func TestUserConfigFile(t *testing.T) {
+	env := map[string]string{"XDG_CONFIG_HOME": "/xdg"}
+	got, err := userConfigFile(func(k string) string { return env[k] })
+	if err != nil || got != filepath.Join("/xdg", "jira-cli", "config.env") {
+		t.Errorf("userConfigFile with XDG = %q, %v", got, err)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	got, err = userConfigFile(func(string) string { return "" })
+	if err != nil || got != filepath.Join(home, ".config", "jira-cli", "config.env") {
+		t.Errorf("userConfigFile = %q, %v", got, err)
+	}
+}
+
+func TestPrintIssueComments(t *testing.T) {
+	issue := jira.Issue{
+		Key:    "PROJ-123",
+		Fields: jira.IssueFields{Summary: "Fix it", Description: "desc"},
+		Comments: []jira.Comment{
+			{Author: &jira.User{DisplayName: "Ann"}, Body: "first"},
+			{Body: "second"},
+		},
+	}
+	var out strings.Builder
+	if err := printIssue(&out, issue, "https://site/browse/PROJ-123"); err != nil {
+		t.Fatal(err)
+	}
+	want := "desc\n\nComments (2)\n\nAnn  -\nfirst\n\n-  -\nsecond\n"
+	if !strings.HasSuffix(out.String(), want) {
+		t.Errorf("output ends with:\n%s\nwant suffix:\n%s", out.String(), want)
+	}
+}
+
+func TestIssueKey(t *testing.T) {
+	tests := map[string]string{
+		"PROJ-123": "PROJ-123",
+		"https://your-domain.atlassian.net/browse/PROJ-123":                                             "PROJ-123",
+		"https://your-domain.atlassian.net/browse/PROJ-123/":                                            "PROJ-123",
+		"https://your-domain.atlassian.net/browse/PROJ-123?focusedCommentId=1":                          "PROJ-123",
+		"https://your-domain.atlassian.net/jira/software/projects/PROJ/boards/7?selectedIssue=PROJ-123": "PROJ-123",
+	}
+	for ref, want := range tests {
+		got, err := issueKey(ref)
+		if err != nil || got != want {
+			t.Errorf("issueKey(%q) = %q, %v, want %q", ref, got, err, want)
+		}
+	}
+	for _, ref := range []string{"https://your-domain.atlassian.net/browse/", "https://your-domain.atlassian.net/jira/your-work"} {
+		if got, err := issueKey(ref); err == nil {
+			t.Errorf("issueKey(%q) = %q, want error", ref, got)
+		}
+	}
+}
+
 func TestEnvLookupPrefersEnvironment(t *testing.T) {
 	t.Setenv("JIRA_SPRINT", "Sprint 1")
 	lookup := envLookup(map[string]string{"JIRA_SPRINT": "Support", "JIRA_BOARD_ID": "1"})

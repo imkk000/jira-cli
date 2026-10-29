@@ -146,6 +146,16 @@ func (c *Client) Issue(ctx context.Context, key string) (Issue, error) {
 	return issue, nil
 }
 
+func (c *Client) Comments(ctx context.Context, key string) ([]Comment, error) {
+	path, err := issuePath(key, "comment")
+	if err != nil {
+		return nil, err
+	}
+	q := make(url.Values)
+	q.Set("orderBy", "created")
+	return paginate[Comment](ctx, c, path, q, 0)
+}
+
 func (c *Client) Transitions(ctx context.Context, key string) ([]Transition, error) {
 	path, err := issuePath(key, "transitions")
 	if err != nil {
@@ -207,10 +217,11 @@ func issueQuery(jql string) url.Values {
 }
 
 type page[T any] struct {
-	Total  int  `json:"total"`
-	IsLast bool `json:"isLast"`
-	Values []T  `json:"values"`
-	Issues []T  `json:"issues"`
+	Total    int  `json:"total"`
+	IsLast   bool `json:"isLast"`
+	Values   []T  `json:"values"`
+	Issues   []T  `json:"issues"`
+	Comments []T  `json:"comments"`
 }
 
 func paginate[T any](ctx context.Context, c *Client, path string, query url.Values, limit int) ([]T, error) {
@@ -229,7 +240,7 @@ func paginate[T any](ctx context.Context, c *Client, path string, query url.Valu
 		if err := c.get(ctx, path, q, &p); err != nil {
 			return nil, err
 		}
-		items := slices.Concat(p.Values, p.Issues)
+		items := slices.Concat(p.Values, p.Issues, p.Comments)
 		all = append(all, items...)
 		startAt += len(items)
 
