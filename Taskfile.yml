@@ -1,0 +1,27 @@
+version: "3"
+
+vars:
+  BIN: bin/jira
+
+tasks:
+  build:
+    cmds:
+      - go build -o {{.BIN}} .
+
+  test:
+    cmds:
+      - go test -race ./...
+
+  lint:
+    cmds:
+      - golangci-lint run --config ~/.config/golangci-lint/config.yaml ./...
+
+  vuln:
+    cmds:
+      - govulncheck ./...
+
+  check:
+    cmds:
+      - task: test
+      - task: lint
+      - task: vuln
