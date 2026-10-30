@@ -29,6 +29,7 @@ jira sprints -all
 jira sprint -open
 jira sprint -sprint "Sprint 1" -assignee me
 jira sprint -jql 'created < "2026-10-21"'
+jira sprint -open -w -interval 1m
 jira issues -status "In Progress"
 jira show PROJ-123
 jira show https://your-domain.atlassian.net/browse/PROJ-123
@@ -47,7 +48,7 @@ jira move PROJ-123 "In Code Review"
 | `transitions` | List the status moves available for an issue right now               |
 | `move`        | Move an issue to a status reachable in one step                      |
 
-`issues` and `sprint` accept `-status`, `-assignee me|none|USER`, `-open` (hide Done-category statuses), `-jql`, and `-limit`. `show`, `transitions`, and every list command accept `-json`. `show`, `transitions`, and `move` take an issue key or an issue URL (`.../browse/PROJ-123` or a board link with `selectedIssue=PROJ-123`).
+`issues` and `sprint` accept `-status`, `-assignee me|none|USER`, `-open` (hide Done-category statuses), `-jql`, and `-limit`. `show`, `transitions`, and every list command accept `-json`. Every command except `move` accepts `-w` (or `-watch`) to clear the screen and redraw the output every `-interval` (default `30s`, minimum `5s`) until Ctrl-C. A failed refresh keeps the last output on screen and shows the error above it; `-watch` cannot be combined with `-json`. `show`, `transitions`, and `move` take an issue key or an issue URL (`.../browse/PROJ-123` or a board link with `selectedIssue=PROJ-123`).
 
 `move` matches the target by status name, action name, or transition ID, prints the planned move, and asks for confirmation (`-yes` skips it, `-dry-run` stops before changing anything). When `JIRA_SPRINT` is set, it refuses issues outside that sprint unless `-any-sprint` is given. Jira workflows only allow one step at a time, so moving across several statuses takes several `move` calls. Changing status needs the `write:jira-work` scope on scoped tokens.
 

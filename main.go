@@ -18,17 +18,21 @@ import (
 const usage = `jira - read and move issues on a Jira board
 
 Usage:
-  jira boards  [-name TEXT] [-json]
-  jira sprints [-board ID] [-all] [-json]
-  jira issues  [-board ID] [FILTERS] [-json]
-  jira sprint  [-board ID] [-sprint NAME|ID] [FILTERS] [-json]
-  jira show    [-json] KEY|URL
-  jira transitions [-json] KEY|URL
+  jira boards  [-name TEXT] [-json] [WATCH]
+  jira sprints [-board ID] [-all] [-json] [WATCH]
+  jira issues  [-board ID] [FILTERS] [-json] [WATCH]
+  jira sprint  [-board ID] [-sprint NAME|ID] [FILTERS] [-json] [WATCH]
+  jira show    [-json] [WATCH] KEY|URL
+  jira transitions [-json] [WATCH] KEY|URL
   jira move    [-yes] [-dry-run] [-any-sprint] KEY|URL STATUS
 
 Filters:
   -status NAME  -assignee me|none|USER  -open  -jql CLAUSE  -limit N
   -wide also shows TYPE, PRIORITY and ASSIGNEE
+
+Watch:
+  -w, -watch     redraw the output until interrupted (not with -json)
+  -interval DUR  time between refreshes, default 30s, minimum 5s
 
 Environment (also read from ~/.config/jira-cli/config.env, then ./.env;
 later files override earlier ones and real environment variables win):

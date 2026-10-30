@@ -16,29 +16,32 @@ import (
 func runTransitions(ctx context.Context, client *jira.Client, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("transitions", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "print JSON")
+	watcher := addWatchFlags(fs, asJSON)
 	positional, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(positional) != 1 {
-		return errors.New("usage: jira transitions [-json] KEY|URL")
+		return errors.New("usage: jira transitions [-json] [-w] KEY|URL")
 	}
 	key, err := issueKey(positional[0])
 	if err != nil {
 		return err
 	}
-	issue, err := client.Issue(ctx, key)
-	if err != nil {
-		return err
-	}
-	transitions, err := client.Transitions(ctx, issue.Key)
-	if err != nil {
-		return err
-	}
-	if *asJSON {
-		return writeJSON(out, transitions)
-	}
-	return printTransitions(out, issue, transitions)
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		issue, err := client.Issue(ctx, key)
+		if err != nil {
+			return err
+		}
+		transitions, err := client.Transitions(ctx, issue.Key)
+		if err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(w, transitions)
+		}
+		return printTransitions(w, issue, transitions)
+	})
 }
 
 func runMove(ctx context.Context, client *jira.Client, cfg config, args []string, in io.Reader, out io.Writer) error {

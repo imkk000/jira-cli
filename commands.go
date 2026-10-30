@@ -89,39 +89,45 @@ func runBoards(ctx context.Context, client *jira.Client, args []string, out io.W
 	fs := flag.NewFlagSet("boards", flag.ContinueOnError)
 	name := fs.String("name", "", "only boards whose name contains TEXT")
 	asJSON := fs.Bool("json", false, "print JSON")
+	watcher := addWatchFlags(fs, asJSON)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	boards, err := client.Boards(ctx, *name)
-	if err != nil {
-		return err
-	}
-	if *asJSON {
-		return writeJSON(out, boards)
-	}
-	return printBoards(out, boards)
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		boards, err := client.Boards(ctx, *name)
+		if err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(w, boards)
+		}
+		return printBoards(w, boards)
+	})
 }
 
 func runIssues(ctx context.Context, client *jira.Client, cfg config, args []string, out io.Writer) error {
 	fs, f := newIssueFlags("issues", cfg.boardID)
+	watcher := addWatchFlags(fs, &f.json)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if err := f.validate(); err != nil {
 		return err
 	}
-	issues, err := client.BoardIssues(ctx, f.boardID, f.query(), f.limit)
-	if err != nil {
-		return err
-	}
-	if f.json {
-		return writeJSON(out, issues)
-	}
-	browse, err := client.BrowseURLs(ctx)
-	if err != nil {
-		return err
-	}
-	return printIssues(out, issues, f.columns(browse))
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		issues, err := client.BoardIssues(ctx, f.boardID, f.query(), f.limit)
+		if err != nil {
+			return err
+		}
+		if f.json {
+			return writeJSON(w, issues)
+		}
+		browse, err := client.BrowseURLs(ctx)
+		if err != nil {
+			return err
+		}
+		return printIssues(w, issues, f.columns(browse))
+	})
 }
 
 type sprintIssues struct {
@@ -132,32 +138,35 @@ type sprintIssues struct {
 func runSprint(ctx context.Context, client *jira.Client, cfg config, args []string, out io.Writer) error {
 	fs, f := newIssueFlags("sprint", cfg.boardID)
 	ref := fs.String("sprint", cfg.sprint, "sprint name or ID (defaults to $JIRA_SPRINT, else the active sprint)")
+	watcher := addWatchFlags(fs, &f.json)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if err := f.validate(); err != nil {
 		return err
 	}
-	sprints, err := selectSprints(ctx, client, f.boardID, *ref)
-	if err != nil {
-		return err
-	}
-	results := make([]sprintIssues, 0, len(sprints))
-	for _, s := range sprints {
-		issues, err := client.SearchIssues(ctx, sprintJQL(s.ID, f.query()), f.limit)
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		sprints, err := selectSprints(ctx, client, f.boardID, *ref)
 		if err != nil {
-			return fmt.Errorf("sprint %q: %w", s.Name, err)
+			return err
 		}
-		results = append(results, sprintIssues{Sprint: s, Issues: issues})
-	}
-	if f.json {
-		return writeJSON(out, results)
-	}
-	browse, err := client.BrowseURLs(ctx)
-	if err != nil {
-		return err
-	}
-	return printSprints(out, results, f.columns(browse))
+		results := make([]sprintIssues, 0, len(sprints))
+		for _, s := range sprints {
+			issues, err := client.SearchIssues(ctx, sprintJQL(s.ID, f.query()), f.limit)
+			if err != nil {
+				return fmt.Errorf("sprint %q: %w", s.Name, err)
+			}
+			results = append(results, sprintIssues{Sprint: s, Issues: issues})
+		}
+		if f.json {
+			return writeJSON(w, results)
+		}
+		browse, err := client.BrowseURLs(ctx)
+		if err != nil {
+			return err
+		}
+		return printSprints(w, results, f.columns(browse))
+	})
 }
 
 func selectSprints(ctx context.Context, client *jira.Client, boardID int, ref string) ([]jira.Sprint, error) {
@@ -200,6 +209,7 @@ func runSprints(ctx context.Context, client *jira.Client, cfg config, args []str
 	boardID := fs.Int("board", cfg.boardID, "board ID (defaults to $JIRA_BOARD_ID)")
 	all := fs.Bool("all", false, "include closed sprints")
 	asJSON := fs.Bool("json", false, "print JSON")
+	watcher := addWatchFlags(fs, asJSON)
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -210,45 +220,50 @@ func runSprints(ctx context.Context, client *jira.Client, cfg config, args []str
 	if *all {
 		states = append(states, "closed")
 	}
-	sprints, err := client.Sprints(ctx, *boardID, states...)
-	if err != nil {
-		return err
-	}
-	if *asJSON {
-		return writeJSON(out, sprints)
-	}
-	return printSprintList(out, sprints, cfg.sprint)
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		sprints, err := client.Sprints(ctx, *boardID, states...)
+		if err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(w, sprints)
+		}
+		return printSprintList(w, sprints, cfg.sprint)
+	})
 }
 
 func runShow(ctx context.Context, client *jira.Client, args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("show", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "print JSON")
+	watcher := addWatchFlags(fs, asJSON)
 	positional, err := parseInterleaved(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(positional) != 1 {
-		return errors.New("usage: jira show [-json] KEY|URL")
+		return errors.New("usage: jira show [-json] [-w] KEY|URL")
 	}
 	key, err := issueKey(positional[0])
 	if err != nil {
 		return err
 	}
-	issue, err := client.Issue(ctx, key)
-	if err != nil {
-		return err
-	}
-	if issue.Comments, err = client.Comments(ctx, issue.Key); err != nil {
-		return err
-	}
-	if *asJSON {
-		return writeJSON(out, issue)
-	}
-	browse, err := client.BrowseURLs(ctx)
-	if err != nil {
-		return err
-	}
-	return printIssue(out, issue, browse(issue.Key))
+	return watcher.run(ctx, out, func(w io.Writer) error {
+		issue, err := client.Issue(ctx, key)
+		if err != nil {
+			return err
+		}
+		if issue.Comments, err = client.Comments(ctx, issue.Key); err != nil {
+			return err
+		}
+		if *asJSON {
+			return writeJSON(w, issue)
+		}
+		browse, err := client.BrowseURLs(ctx)
+		if err != nil {
+			return err
+		}
+		return printIssue(w, issue, browse(issue.Key))
+	})
 }
 
 func issueKey(ref string) (string, error) {
